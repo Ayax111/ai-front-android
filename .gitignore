@@ -7,8 +7,28 @@
 /captures/
 .externalNativeBuild/
 .cxx/
+*.log
+*.tmp
+
+# Environment files
+.env
+.env.*
+!.env.example
 
 # Keystore and secrets
 *.jks
 *.keystore
 *.properties.local
+key.properties
+*.p12
+*.pem
+*.der
+
+# Service/account and local config
+google-services.json
+*.mobileprovision
+
+# IDE local state
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml

@@ -36,3 +36,8 @@ git branch -M main
 git remote add origin https://github.com/Ayax111/ia-front-android.git
 git push -u origin main
 ```
+
+## Privacidad del repositorio
+- No subas archivos `.env` reales; usa solo `.env.example`.
+- `local.properties`, keystores y llaves de firma estan ignorados en `.gitignore`.
+- Evita hardcodear IPs privadas, rutas de tu PC o tokens en el codigo.
