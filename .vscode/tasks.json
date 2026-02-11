@@ -1,0 +1,64 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "android: setup local.properties",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/setup-android-env.ps1"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "gradle: assembleDebug",
+      "type": "shell",
+      "command": "${workspaceFolder}/gradlew.bat",
+      "args": [
+        "assembleDebug"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$msCompile"
+      ]
+    },
+    {
+      "label": "gradle: installDebug",
+      "type": "shell",
+      "command": "${workspaceFolder}/gradlew.bat",
+      "args": [
+        "installDebug"
+      ],
+      "problemMatcher": [
+        "$msCompile"
+      ]
+    },
+    {
+      "label": "android: run debug app",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/run-debug.ps1"
+      ],
+      "dependsOn": [
+        "gradle: installDebug"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "adb: logcat",
+      "type": "shell",
+      "command": "adb",
+      "args": [
+        "logcat"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

@@ -20,10 +20,34 @@ Base inicial de una app Android tipo chat enfocada en usar modelos locales de IA
 3. Reemplazar `FakeLocalModelEngine` por un motor real.
 4. Agregar streaming de tokens y cancelacion de generacion.
 
-## Abrir en Android Studio
-1. Abre esta carpeta como proyecto.
-2. Deja que Android Studio sincronice Gradle.
-3. Si hace falta, genera el wrapper de Gradle desde Android Studio o con `gradle wrapper`.
+## Ejecutar desde VSCode (sin Android Studio)
+1. Instala JDK 17.
+2. Instala Android SDK command-line tools.
+3. Instala paquetes minimos:
+   - `platform-tools`
+   - `platforms;android-35`
+   - `build-tools;35.0.0`
+4. Define `ANDROID_SDK_ROOT` (o `ANDROID_HOME`) y agrega `platform-tools` al `PATH`.
+5. En este repo corre:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-android-env.ps1
+.\gradlew.bat assembleDebug
+```
+
+6. Con dispositivo conectado (depuracion USB) o emulador activo:
+
+```powershell
+.\gradlew.bat installDebug
+adb shell am start -n com.ayax.iafront/com.ayax.iafront.MainActivity
+```
+
+Tambien tienes tareas en VSCode (`Terminal > Run Task`):
+- `android: setup local.properties`
+- `gradle: assembleDebug`
+- `gradle: installDebug`
+- `android: run debug app`
+- `adb: logcat`
 
 ## GitHub (Ayax111)
 Si aun no existe el remoto:
