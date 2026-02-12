@@ -22,12 +22,17 @@ Base inicial de una app Android tipo chat enfocada en usar modelos locales de IA
 
 ## Ejecutar desde VSCode (sin Android Studio)
 1. Instala JDK 17.
-2. Instala Android SDK command-line tools.
-3. Instala paquetes minimos:
+2. Instala Android SDK command-line tools (automatico):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-android-sdk.ps1
+```
+
+3. Si prefieres manual, instala paquetes minimos:
    - `platform-tools`
    - `platforms;android-35`
    - `build-tools;35.0.0`
-4. Define `ANDROID_SDK_ROOT` (o `ANDROID_HOME`) y agrega `platform-tools` al `PATH`.
+4. Define `ANDROID_SDK_ROOT` (o `ANDROID_HOME`) y agrega `platform-tools` al `PATH` (el script ya lo deja persistido para tu usuario).
 5. En este repo corre:
 
 ```powershell
