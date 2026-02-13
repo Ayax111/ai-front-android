@@ -15,7 +15,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             IAFrontTheme {
                 Surface {
-                    val vm: ChatViewModel = viewModel()
+                    val vm: ChatViewModel = viewModel(
+                        factory = ChatViewModelFactory(applicationContext)
+                    )
                     ChatScreen(vm)
                 }
             }

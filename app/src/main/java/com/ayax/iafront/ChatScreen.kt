@@ -4,52 +4,370 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import com.ayax.iafront.ui.MarkdownText
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
+private sealed interface HistoryListItem {
+    data class Header(val label: String) : HistoryListItem
+    data class Entry(val conversation: ConversationSummary) : HistoryListItem
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-    var prompt by remember { mutableStateOf("") }
+    val historyItems = remember(uiState.history) { buildHistoryItems(uiState.history) }
 
+    var prompt by remember { mutableStateOf("") }
+    var modelsExpanded by remember { mutableStateOf(false) }
+    var serverInput by remember(uiState.serverBaseUrl) { mutableStateOf(uiState.serverBaseUrl) }
+    var deleteTarget by remember { mutableStateOf<ConversationSummary?>(null) }
+    var renameTarget by remember { mutableStateOf<ConversationSummary?>(null) }
+    var renameValue by remember { mutableStateOf("") }
+
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    val canSend = uiState.isModelReady && !uiState.selectedModel.isNullOrBlank() && prompt.isNotBlank()
+    val sendMessage = {
+        if (canSend) {
+            viewModel.sendMessage(prompt)
+            prompt = ""
+        }
+    }
+
+    if (deleteTarget != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Eliminar conversacion") },
+            text = { Text("Esta accion eliminara la conversacion del historial local.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteConversation(deleteTarget!!.id)
+                        deleteTarget = null
+                    }
+                ) { Text("Eliminar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    if (renameTarget != null) {
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text("Renombrar conversacion") },
+            text = {
+                OutlinedTextField(
+                    value = renameValue,
+                    onValueChange = { renameValue = it },
+                    label = { Text("Nuevo nombre") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.renameConversation(renameTarget!!.id, renameValue)
+                        renameTarget = null
+                    },
+                    enabled = renameValue.isNotBlank()
+                ) { Text("Guardar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameTarget = null }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = true,
+        drawerContent = {
+            ModalDrawerSheet {
+                OptionsPanel(
+                    uiState = uiState,
+                    historyItems = historyItems,
+                    modelsExpanded = modelsExpanded,
+                    onModelsExpandedChange = { modelsExpanded = it },
+                    serverInput = serverInput,
+                    onServerInputChange = { serverInput = it },
+                    onApplyServer = { viewModel.updateServerBaseUrl(serverInput) },
+                    onSelectModel = { viewModel.selectModel(it) },
+                    onReloadModels = { viewModel.initializeModel() },
+                    onNewConversation = { viewModel.startNewConversation() },
+                    onOpenConversation = {
+                        viewModel.openConversation(it)
+                        scope.launch { drawerState.close() }
+                    },
+                    onRenameConversation = { conv ->
+                        renameTarget = conv
+                        renameValue = conv.title
+                    },
+                    onDeleteConversation = { deleteTarget = it }
+                )
+            }
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("IA Front") },
+                    actions = {
+                        TextButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Text("Opciones")
+                        }
+                    }
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { viewModel.startNewConversation() }
+                ) {
+                    Text("+")
+                }
+            }
+        ) { innerPadding ->
+            ConversationPanel(
+                uiState = uiState,
+                prompt = prompt,
+                onPromptChange = { prompt = it },
+                onSend = sendMessage,
+                onReloadModels = { viewModel.initializeModel() },
+                canSend = canSend,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .imePadding()
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OptionsPanel(
+    uiState: ChatUiState,
+    historyItems: List<HistoryListItem>,
+    modelsExpanded: Boolean,
+    onModelsExpandedChange: (Boolean) -> Unit,
+    serverInput: String,
+    onServerInputChange: (String) -> Unit,
+    onApplyServer: () -> Unit,
+    onSelectModel: (String) -> Unit,
+    onReloadModels: () -> Unit,
+    onNewConversation: () -> Unit,
+    onOpenConversation: (String) -> Unit,
+    onRenameConversation: (ConversationSummary) -> Unit,
+    onDeleteConversation: (ConversationSummary) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text("Opciones", style = MaterialTheme.typography.titleLarge)
+
+        OutlinedTextField(
+            value = serverInput,
+            onValueChange = onServerInputChange,
+            label = { Text("Servidor local") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onApplyServer) { Text("Aplicar") }
+            Button(onClick = onReloadModels, enabled = !uiState.isLoadingModels) {
+                Text(if (uiState.isLoadingModels) "Consultando..." else "Recargar modelos")
+            }
+        }
+
+        ExposedDropdownMenuBox(
+            expanded = modelsExpanded,
+            onExpandedChange = onModelsExpandedChange
+        ) {
+            OutlinedTextField(
+                value = uiState.selectedModel ?: "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Modelo") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelsExpanded)
+                },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth()
+            )
+            DropdownMenu(
+                expanded = modelsExpanded,
+                onDismissRequest = { onModelsExpandedChange(false) }
+            ) {
+                uiState.availableModels.forEach { model ->
+                    DropdownMenuItem(
+                        text = { Text(model) },
+                        onClick = {
+                            onSelectModel(model)
+                            onModelsExpandedChange(false)
+                        }
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Historial", style = MaterialTheme.typography.titleMedium)
+            TextButton(onClick = onNewConversation) { Text("Nueva") }
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
+            items(
+                items = historyItems,
+                key = { item ->
+                    when (item) {
+                        is HistoryListItem.Header -> "header:${item.label}"
+                        is HistoryListItem.Entry -> item.conversation.id
+                    }
+                }
+            ) { item ->
+                when (item) {
+                    is HistoryListItem.Header -> {
+                        Text(
+                            text = item.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    is HistoryListItem.Entry -> {
+                        val conv = item.conversation
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(
+                                    onClick = { onOpenConversation(conv.id) },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text(conv.title) }
+                                TextButton(onClick = { onRenameConversation(conv) }) {
+                                    Text("Renombrar")
+                                }
+                                TextButton(onClick = { onDeleteConversation(conv) }) {
+                                    Text("Eliminar")
+                                }
+                            }
+                            if (conv.preview.isNotBlank()) {
+                                Text(
+                                    text = conv.preview,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 8.dp, end = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationPanel(
+    uiState: ChatUiState,
+    prompt: String,
+    onPromptChange: (String) -> Unit,
+    onSend: () -> Unit,
+    onReloadModels: () -> Unit,
+    canSend: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
-            text = "IA Front Local",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = if (uiState.isModelReady) "Modelo local listo" else "Modelo local no inicializado",
+            text = if (uiState.isModelReady) {
+                "Modelo listo: ${uiState.selectedModel ?: "sin seleccionar"}"
+            } else {
+                "Modelo no inicializado"
+            },
             color = if (uiState.isModelReady) Color(0xFF1B5E20) else Color(0xFFB71C1C)
         )
+        if (!uiState.statusMessage.isNullOrBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = uiState.statusMessage ?: "",
+                color = MaterialTheme.colorScheme.error
+            )
+        }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
 
         LazyColumn(
             modifier = Modifier
@@ -66,28 +384,24 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
         OutlinedTextField(
             value = prompt,
-            onValueChange = { prompt = it },
+            onValueChange = onPromptChange,
             label = { Text("Escribe tu mensaje") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = {
-                    if (prompt.isNotBlank()) {
-                        viewModel.sendMessage(prompt)
-                        prompt = ""
+            keyboardOptions = KeyboardOptions(
+                imeAction = ImeAction.Send,
+                capitalization = KeyboardCapitalization.Sentences
+            ),
+            keyboardActions = KeyboardActions(onSend = { onSend() }),
+            trailingIcon = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(onClick = onSend, enabled = canSend) { Text("Enviar") }
+                    Spacer(Modifier.width(6.dp))
+                    TextButton(onClick = onReloadModels, enabled = !uiState.isLoadingModels) {
+                        Text("Modelos")
                     }
                 }
-            ) {
-                Text("Enviar")
-            }
-            Button(onClick = { viewModel.initializeModel() }) {
-                Text("Inicializar modelo")
-            }
-        }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -106,10 +420,44 @@ private fun ChatBubble(message: ChatMessage) {
                 )
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            Text(
-                text = message.content,
-                color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
-            )
+            SelectionContainer {
+                MarkdownText(
+                    text = message.content,
+                    color = if (isUser) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    }
+                )
+            }
         }
+    }
+}
+
+private fun buildHistoryItems(history: List<ConversationSummary>): List<HistoryListItem> {
+    if (history.isEmpty()) return emptyList()
+    val grouped = linkedMapOf<String, MutableList<ConversationSummary>>()
+    history.forEach { summary ->
+        val label = historyDateLabel(summary.updatedAt)
+        grouped.getOrPut(label) { mutableListOf() }.add(summary)
+    }
+
+    return buildList {
+        grouped.forEach { (label, conversations) ->
+            add(HistoryListItem.Header(label))
+            conversations.forEach { add(HistoryListItem.Entry(it)) }
+        }
+    }
+}
+
+private fun historyDateLabel(timestamp: Long): String {
+    val zone = ZoneId.systemDefault()
+    val date = Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate()
+    val today = LocalDate.now(zone)
+    return when {
+        date == today -> "Hoy"
+        date == today.minusDays(1) -> "Ayer"
+        date.isAfter(today.minusDays(7)) -> "Esta semana"
+        else -> "Anteriores"
     }
 }
