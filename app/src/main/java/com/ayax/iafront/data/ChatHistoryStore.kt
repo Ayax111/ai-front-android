@@ -9,6 +9,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+// Full conversation representation persisted locally as JSON.
 data class StoredConversation(
     val id: String,
     val title: String,
@@ -16,10 +17,15 @@ data class StoredConversation(
     val updatedAt: Long
 )
 
+/**
+ * Handles local chat history persistence.
+ * Data is stored in app-private files as a single JSON document.
+ */
 class ChatHistoryStore(context: Context) {
 
     private val file = File(context.filesDir, "chat_history.json")
 
+    // Loads all saved conversations, returning an empty list if no file exists.
     suspend fun loadAll(): List<StoredConversation> = withContext(Dispatchers.IO) {
         if (!file.exists()) return@withContext emptyList()
         val raw = file.readText(Charsets.UTF_8)
@@ -58,6 +64,7 @@ class ChatHistoryStore(context: Context) {
         }
     }
 
+    // Rewrites the full history file with the latest in-memory conversations.
     suspend fun saveAll(conversations: List<StoredConversation>) = withContext(Dispatchers.IO) {
         val root = JSONObject()
         val arr = JSONArray()

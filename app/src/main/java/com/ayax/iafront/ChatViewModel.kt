@@ -13,6 +13,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+/**
+ * Coordinates chat workflow:
+ * - model discovery and selection
+ * - conversation state updates
+ * - local persistence of history and settings
+ */
 class ChatViewModel(
     private val modelEngine: LocalModelEngine = ApiLocalModelEngine(),
     private val historyStore: ChatHistoryStore,
@@ -33,6 +39,7 @@ class ChatViewModel(
         initializeModel()
     }
 
+    // Loads available models from the configured server and syncs model state.
     fun initializeModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingModels = true, statusMessage = null)
@@ -60,11 +67,13 @@ class ChatViewModel(
         }
     }
 
+    // Updates the selected model for subsequent requests.
     fun selectModel(modelId: String) {
         modelEngine.selectModel(modelId)
         _uiState.value = _uiState.value.copy(selectedModel = modelId)
     }
 
+    // Persists new server URL and triggers a full model refresh.
     fun updateServerBaseUrl(input: String) {
         val normalized = normalizeBaseUrl(input)
         appSettingsStore.setServerBaseUrl(normalized)
@@ -79,6 +88,7 @@ class ChatViewModel(
         initializeModel()
     }
 
+    // Creates and opens a brand-new local conversation.
     fun startNewConversation() {
         viewModelScope.launch {
             val newConversation = createEmptyConversation()
@@ -88,10 +98,12 @@ class ChatViewModel(
         }
     }
 
+    // Switches the active conversation in UI state.
     fun openConversation(conversationId: String) {
         publishCurrentConversation(conversationId)
     }
 
+    // Removes a conversation and keeps at least one available.
     fun deleteConversation(conversationId: String) {
         viewModelScope.launch {
             conversations.removeAll { it.id == conversationId }
@@ -104,6 +116,7 @@ class ChatViewModel(
         }
     }
 
+    // Renames an existing conversation.
     fun renameConversation(conversationId: String, newTitle: String) {
         val normalized = newTitle.trim()
         if (normalized.isBlank()) return
@@ -123,6 +136,7 @@ class ChatViewModel(
         }
     }
 
+    // Sends the user message, asks the model for a reply, and stores both.
     fun sendMessage(userPrompt: String) {
         if (userPrompt.isBlank()) return
 
@@ -149,6 +163,7 @@ class ChatViewModel(
         }
     }
 
+    // Loads saved conversations from local storage on startup.
     private suspend fun loadHistory() {
         conversations = historyStore.loadAll().sortedByDescending { it.updatedAt }.toMutableList()
         if (conversations.isEmpty()) {
@@ -158,6 +173,7 @@ class ChatViewModel(
         publishCurrentConversation(conversations.first().id)
     }
 
+    // Pushes the active conversation snapshot to Compose state.
     private fun publishCurrentConversation(
         conversationId: String,
         overrideMessages: List<ChatMessage>? = null
@@ -171,6 +187,7 @@ class ChatViewModel(
         )
     }
 
+    // Appends one message to a conversation and bumps its update timestamp.
     private fun appendMessage(conversationId: String, message: ChatMessage): List<ChatMessage> {
         val idx = conversations.indexOfFirst { it.id == conversationId }
         if (idx < 0) return emptyList()
@@ -186,6 +203,7 @@ class ChatViewModel(
         return updatedMessages
     }
 
+    // Converts full conversations into lightweight history rows.
     private fun buildSummaries(): List<ConversationSummary> =
         conversations
             .filter { it.messages.isNotEmpty() }
@@ -197,6 +215,7 @@ class ChatViewModel(
             )
         }
 
+    // Conversation scaffold used for new chats.
     private fun createEmptyConversation(): StoredConversation =
         StoredConversation(
             id = UUID.randomUUID().toString(),
@@ -205,10 +224,12 @@ class ChatViewModel(
             updatedAt = System.currentTimeMillis()
         )
 
+    // Writes conversation state to disk.
     private suspend fun persistHistory() {
         historyStore.saveAll(conversations)
     }
 
+    // Generates a short title for the first user message if still unnamed.
     private suspend fun maybeGenerateTitle(conversationId: String, firstUserPrompt: String) {
         val idx = conversations.indexOfFirst { it.id == conversationId }
         if (idx < 0) return
@@ -229,6 +250,7 @@ class ChatViewModel(
         conversations.sortByDescending { it.updatedAt }
     }
 
+    // Ensures URL contains protocol and no trailing slash.
     private fun normalizeBaseUrl(raw: String): String {
         val trimmed = raw.trim().removeSuffix("/")
         if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed

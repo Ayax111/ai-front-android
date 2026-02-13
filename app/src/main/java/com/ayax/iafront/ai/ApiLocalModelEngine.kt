@@ -9,6 +9,10 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
+/**
+ * Local model engine backed by an OpenAI-compatible HTTP API.
+ * Expected endpoints: `/v1/models` and `/v1/chat/completions`.
+ */
 class ApiLocalModelEngine(
     baseUrl: String = "http://192.168.0.194:1234"
 ) : LocalModelEngine {
@@ -16,6 +20,7 @@ class ApiLocalModelEngine(
     private var baseUrl: String = normalizeBaseUrl(baseUrl)
     private var currentModel: String? = null
 
+    // Verifies connectivity and sets a default model when possible.
     override suspend fun initialize(): Boolean {
         val models = listModels()
         if (models.isEmpty()) return false
@@ -25,6 +30,7 @@ class ApiLocalModelEngine(
         return true
     }
 
+    // Fetches available model IDs from `/v1/models`.
     override suspend fun listModels(): List<String> = withContext(Dispatchers.IO) {
         val response = request("GET", "/v1/models")
         val json = JSONObject(response)
@@ -51,6 +57,7 @@ class ApiLocalModelEngine(
 
     override fun getBaseUrl(): String = baseUrl
 
+    // Asks the model for a concise one-line conversation title.
     override suspend fun generateConversationTitle(firstUserPrompt: String): String = withContext(Dispatchers.IO) {
         val model = currentModel ?: return@withContext firstUserPrompt.trim().take(42)
         val payload = JSONObject()
@@ -86,6 +93,7 @@ class ApiLocalModelEngine(
             .orEmpty()
     }
 
+    // Sends one user message and returns assistant content from the first choice.
     override suspend fun generateReply(prompt: String): String = withContext(Dispatchers.IO) {
         val model = currentModel ?: return@withContext "No hay modelo seleccionado."
         val payload = JSONObject()
@@ -107,6 +115,7 @@ class ApiLocalModelEngine(
         if (content.isNotEmpty()) content else "Sin contenido en respuesta."
     }
 
+    // Minimal JSON HTTP helper with explicit timeouts and error propagation.
     private fun request(method: String, path: String, body: String? = null): String {
         val url = URL("$baseUrl$path")
         val connection = (url.openConnection() as HttpURLConnection).apply {
@@ -136,6 +145,7 @@ class ApiLocalModelEngine(
         return responseText
     }
 
+    // Ensures URL has protocol and no trailing slash.
     private fun normalizeBaseUrl(raw: String): String {
         val trimmed = raw.trim().removeSuffix("/")
         if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed

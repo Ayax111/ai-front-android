@@ -9,7 +9,7 @@
         android:label="@string/app_name"
         android:usesCleartextTraffic="true"
         android:supportsRtl="true"
-        android:theme="@style/Theme.IAFront">
+        android:theme="@style/Theme.AIFront">
         <activity
             android:name=".MainActivity"
             android:exported="true">

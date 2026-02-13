@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 
+// Internal markdown AST used for simple block-level rendering.
 private sealed interface MdBlock {
     data class Heading(val level: Int, val text: String) : MdBlock
     data class Paragraph(val text: String) : MdBlock
@@ -40,6 +41,10 @@ private sealed interface MdBlock {
     data object Divider : MdBlock
 }
 
+/**
+ * Renders a practical subset of Markdown used by local model responses:
+ * headings, lists, quotes, code blocks, tables, links and inline styling.
+ */
 @Composable
 fun MarkdownText(
     text: String,
@@ -187,6 +192,7 @@ fun MarkdownText(
     }
 }
 
+// Inline markdown parser and renderer (bold, italic, code, links/URLs).
 @Composable
 private fun MarkdownInlineText(
     text: String,
@@ -211,6 +217,7 @@ private fun MarkdownInlineText(
     )
 }
 
+// Converts raw markdown text into block nodes for rendering.
 private fun parseMarkdownBlocks(input: String): List<MdBlock> {
     val lines = input.replace("\r\n", "\n").split('\n')
     val blocks = mutableListOf<MdBlock>()
@@ -324,6 +331,7 @@ private fun parseMarkdownBlocks(input: String): List<MdBlock> {
     return blocks
 }
 
+// Heuristic table detection for pipe-based markdown tables.
 private fun looksLikeTableRow(line: String): Boolean = line.count { it == '|' } >= 2
 
 private fun looksLikeTableSeparator(line: String): Boolean {
@@ -331,6 +339,7 @@ private fun looksLikeTableSeparator(line: String): Boolean {
     return candidate.isEmpty() && line.contains("---")
 }
 
+// Builds styled text for inline markdown entities.
 private fun rememberInlineAnnotated(
     text: String,
     baseColor: Color,
@@ -429,6 +438,7 @@ private fun rememberInlineAnnotated(
     }
 }
 
+// Applies lightweight code syntax highlighting by language hint.
 private fun rememberCodeAnnotated(
     language: String,
     code: String

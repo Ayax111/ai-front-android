@@ -62,11 +62,18 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
+// Mixed list model used by the history drawer (date headers + conversation rows).
 private sealed interface HistoryListItem {
     data class Header(val label: String) : HistoryListItem
     data class Entry(val conversation: ConversationSummary) : HistoryListItem
 }
 
+/**
+ * Root Compose screen:
+ * - top app bar
+ * - options/history drawer
+ * - conversation panel
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
@@ -170,7 +177,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 TopAppBar(
                     title = {
                         Text(
-                            text = "IA Front",
+                            text = "AI Front",
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.End
                         )
@@ -211,6 +218,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 }
 
+// Drawer content for server settings, model picker and chat history.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OptionsPanel(
@@ -345,6 +353,7 @@ private fun OptionsPanel(
     }
 }
 
+// Main chat area with status, message list, and prompt input.
 @Composable
 private fun ConversationPanel(
     uiState: ChatUiState,
@@ -406,6 +415,7 @@ private fun ConversationPanel(
     }
 }
 
+// One user/assistant bubble with markdown rendering and text selection support.
 @Composable
 private fun ChatBubble(message: ChatMessage) {
     val isUser = message.role == ChatRole.User
@@ -435,6 +445,7 @@ private fun ChatBubble(message: ChatMessage) {
     }
 }
 
+// Groups history entries by relative date labels.
 private fun buildHistoryItems(history: List<ConversationSummary>): List<HistoryListItem> {
     if (history.isEmpty()) return emptyList()
     val grouped = linkedMapOf<String, MutableList<ConversationSummary>>()
@@ -451,6 +462,7 @@ private fun buildHistoryItems(history: List<ConversationSummary>): List<HistoryL
     }
 }
 
+// Maps timestamps to user-friendly date buckets for the history drawer.
 private fun historyDateLabel(timestamp: Long): String {
     val zone = ZoneId.systemDefault()
     val date = Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate()

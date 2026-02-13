@@ -7,6 +7,10 @@ import com.ayax.iafront.ai.ApiLocalModelEngine
 import com.ayax.iafront.data.AppSettingsStore
 import com.ayax.iafront.data.ChatHistoryStore
 
+/**
+ * Factory that injects app-level dependencies into [ChatViewModel].
+ * Using a factory keeps the ViewModel constructor explicit and testable.
+ */
 class ChatViewModelFactory(
     context: Context
 ) : ViewModelProvider.Factory {

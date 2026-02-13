@@ -2,6 +2,7 @@ package com.ayax.iafront.data
 
 import android.content.Context
 
+// Small wrapper around SharedPreferences for app-level settings.
 class AppSettingsStore(context: Context) {
 
     private val prefs = context.getSharedPreferences("ia_front_settings", Context.MODE_PRIVATE)

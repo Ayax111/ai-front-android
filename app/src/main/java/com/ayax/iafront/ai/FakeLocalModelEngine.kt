@@ -2,6 +2,7 @@ package com.ayax.iafront.ai
 
 import kotlinx.coroutines.delay
 
+// Test/demonstration engine used when no real backend is configured.
 class FakeLocalModelEngine : LocalModelEngine {
 
     private var initialized = false
