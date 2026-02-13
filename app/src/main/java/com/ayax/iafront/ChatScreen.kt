@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
@@ -172,10 +172,16 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { viewModel.startNewConversation() }
+                Box(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .padding(bottom = 12.dp)
                 ) {
-                    Text("+")
+                    FloatingActionButton(
+                        onClick = { viewModel.startNewConversation() }
+                    ) {
+                        Text("+")
+                    }
                 }
             }
         ) { innerPadding ->
@@ -184,7 +190,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 prompt = prompt,
                 onPromptChange = { prompt = it },
                 onSend = sendMessage,
-                onReloadModels = { viewModel.initializeModel() },
                 canSend = canSend,
                 modifier = Modifier
                     .fillMaxSize()
@@ -342,7 +347,6 @@ private fun ConversationPanel(
     prompt: String,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
-    onReloadModels: () -> Unit,
     canSend: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -392,13 +396,7 @@ private fun ConversationPanel(
             ),
             keyboardActions = KeyboardActions(onSend = { onSend() }),
             trailingIcon = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Button(onClick = onSend, enabled = canSend) { Text("Enviar") }
-                    Spacer(Modifier.width(6.dp))
-                    TextButton(onClick = onReloadModels, enabled = !uiState.isLoadingModels) {
-                        Text("Modelos")
-                    }
-                }
+                Button(onClick = onSend, enabled = canSend) { Text("Enviar") }
             },
             modifier = Modifier.fillMaxWidth()
         )
