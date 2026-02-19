@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -32,9 +35,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -46,6 +49,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,7 +57,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import com.ayax.iafront.ui.MarkdownText
@@ -173,8 +179,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     ) {
         Scaffold(
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
                 TopAppBar(
+                    modifier = Modifier.statusBarsPadding(),
                     title = {
                         Text(
                             text = "AI Front",
@@ -189,31 +197,43 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     }
                 )
             },
-            floatingActionButton = {
-                Box(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(bottom = 12.dp)
-                ) {
-                    FloatingActionButton(
-                        onClick = { viewModel.startNewConversation() }
-                    ) {
-                        Text("+")
-                    }
-                }
+            bottomBar = {
+                ComposerBar(
+                    prompt = prompt,
+                    onPromptChange = { prompt = it },
+                    onSend = sendMessage,
+                    canSend = canSend
+                )
             }
         ) { innerPadding ->
-            ConversationPanel(
-                uiState = uiState,
-                prompt = prompt,
-                onPromptChange = { prompt = it },
-                onSend = sendMessage,
-                canSend = canSend,
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .imePadding()
-            )
+            ) {
+                ConversationPanel(
+                    uiState = uiState,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(34.dp),
+                    shape = MaterialTheme.shapes.large,
+                    tonalElevation = 3.dp
+                ) {
+                    IconButton(
+                        onClick = { viewModel.startNewConversation() },
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = "Nueva conversacion"
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -357,12 +377,18 @@ private fun OptionsPanel(
 @Composable
 private fun ConversationPanel(
     uiState: ChatUiState,
-    prompt: String,
-    onPromptChange: (String) -> Unit,
-    onSend: () -> Unit,
-    canSend: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val listState = rememberLazyListState()
+    val lastMessageIndex = uiState.messages.lastIndex
+    val lastMessageSize = uiState.messages.lastOrNull()?.content?.length ?: 0
+    val bottomAnchorIndex = uiState.messages.size
+
+    // Keep latest chat content visible as new messages arrive or are updated.
+    LaunchedEffect(lastMessageIndex, lastMessageSize) {
+        listState.animateScrollToItem(bottomAnchorIndex)
+    }
+
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.background)
@@ -386,18 +412,38 @@ private fun ConversationPanel(
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(bottom = 12.dp)
         ) {
             items(uiState.messages) { message ->
                 ChatBubble(message)
             }
+            item(key = "bottom_anchor") {
+                Spacer(Modifier.height(1.dp))
+            }
         }
+    }
+}
 
-        Spacer(Modifier.height(8.dp))
-
+@Composable
+private fun ComposerBar(
+    prompt: String,
+    onPromptChange: (String) -> Unit,
+    onSend: () -> Unit,
+    canSend: Boolean
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .imePadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
         OutlinedTextField(
             value = prompt,
             onValueChange = onPromptChange,

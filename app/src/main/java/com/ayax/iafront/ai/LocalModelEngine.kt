@@ -1,5 +1,7 @@
 package com.ayax.iafront.ai
 
+import com.ayax.iafront.ChatMessage
+
 /**
  * Contract for model providers used by the chat app.
  * Implementations can target local APIs, embedded runtimes, or mocks.
@@ -12,5 +14,5 @@ interface LocalModelEngine {
     fun setBaseUrl(baseUrl: String)
     fun getBaseUrl(): String
     suspend fun generateConversationTitle(firstUserPrompt: String): String
-    suspend fun generateReply(prompt: String): String
+    suspend fun generateReply(prompt: String, conversationContext: List<ChatMessage>): String
 }

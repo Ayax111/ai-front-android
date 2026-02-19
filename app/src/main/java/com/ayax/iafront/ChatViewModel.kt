@@ -149,7 +149,10 @@ class ChatViewModel(
             val selectedModel = _uiState.value.selectedModel
             val reply = if (_uiState.value.isModelReady && !selectedModel.isNullOrBlank()) {
                 try {
-                    modelEngine.generateReply(userPrompt)
+                    modelEngine.generateReply(
+                        prompt = userPrompt,
+                        conversationContext = withUser
+                    )
                 } catch (error: Exception) {
                     "Error en consulta al modelo: ${error.message ?: "sin detalle"}"
                 }

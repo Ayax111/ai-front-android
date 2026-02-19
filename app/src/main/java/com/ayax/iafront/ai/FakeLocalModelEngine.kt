@@ -1,5 +1,6 @@
 package com.ayax.iafront.ai
 
+import com.ayax.iafront.ChatMessage
 import kotlinx.coroutines.delay
 
 // Test/demonstration engine used when no real backend is configured.
@@ -41,9 +42,10 @@ class FakeLocalModelEngine : LocalModelEngine {
         return firstUserPrompt.trim().take(42).ifBlank { "Conversacion" }
     }
 
-    override suspend fun generateReply(prompt: String): String {
+    override suspend fun generateReply(prompt: String, conversationContext: List<ChatMessage>): String {
         delay(250)
         if (!initialized) return "Modelo no inicializado."
-        return "[Mock ${currentModel ?: "sin-modelo"}] Recibido: $prompt"
+        val turns = conversationContext.count { it.content.isNotBlank() }
+        return "[Mock ${currentModel ?: "sin-modelo"}] Recibido: $prompt (contexto: $turns mensajes)"
     }
 }

@@ -1,5 +1,6 @@
 package com.ayax.iafront
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,7 +16,11 @@ import com.ayax.iafront.ui.theme.AIFrontTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // On older Android versions, edge-to-edge can interfere with IME resize.
+        // Keep it for modern devices and use classic resize behavior as fallback.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            enableEdgeToEdge()
+        }
         setContent {
             AIFrontTheme {
                 Surface {

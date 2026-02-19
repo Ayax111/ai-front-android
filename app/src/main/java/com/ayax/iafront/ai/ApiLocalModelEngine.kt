@@ -1,5 +1,7 @@
 package com.ayax.iafront.ai
 
+import com.ayax.iafront.ChatMessage
+import com.ayax.iafront.ChatRole
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -16,6 +18,11 @@ import java.net.URL
 class ApiLocalModelEngine(
     baseUrl: String = "http://192.168.0.194:1234"
 ) : LocalModelEngine {
+
+    private companion object {
+        // Approximate input budget for context when model window is around 24k tokens.
+        private const val MAX_INPUT_CONTEXT_TOKENS = 20_000
+    }
 
     private var baseUrl: String = normalizeBaseUrl(baseUrl)
     private var currentModel: String? = null
@@ -93,17 +100,36 @@ class ApiLocalModelEngine(
             .orEmpty()
     }
 
-    // Sends one user message and returns assistant content from the first choice.
-    override suspend fun generateReply(prompt: String): String = withContext(Dispatchers.IO) {
+    // Sends conversation context and returns assistant content from the first choice.
+    override suspend fun generateReply(
+        prompt: String,
+        conversationContext: List<ChatMessage>
+    ): String = withContext(Dispatchers.IO) {
         val model = currentModel ?: return@withContext "No hay modelo seleccionado."
-        val payload = JSONObject()
-            .put("model", model)
-            .put("stream", false)
-            .put("messages", JSONArray().put(
+        val trimmedContext = trimContextByTokenBudget(conversationContext, MAX_INPUT_CONTEXT_TOKENS)
+        val messages = JSONArray()
+        if (trimmedContext.isEmpty()) {
+            messages.put(
                 JSONObject()
                     .put("role", "user")
                     .put("content", prompt)
-            ))
+            )
+        } else {
+            trimmedContext.forEach { message ->
+                messages.put(
+                    JSONObject()
+                        .put(
+                            "role",
+                            if (message.role == ChatRole.User) "user" else "assistant"
+                        )
+                        .put("content", message.content)
+                )
+            }
+        }
+        val payload = JSONObject()
+            .put("model", model)
+            .put("stream", false)
+            .put("messages", messages)
 
         val response = request("POST", "/v1/chat/completions", payload.toString())
         val json = JSONObject(response)
@@ -150,5 +176,30 @@ class ApiLocalModelEngine(
         val trimmed = raw.trim().removeSuffix("/")
         if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
         return "http://$trimmed"
+    }
+
+    // Keeps the most recent messages within an approximate token budget.
+    private fun trimContextByTokenBudget(
+        context: List<ChatMessage>,
+        maxTokens: Int
+    ): List<ChatMessage> {
+        if (context.isEmpty()) return emptyList()
+        var used = 0
+        val kept = ArrayDeque<ChatMessage>()
+        for (i in context.indices.reversed()) {
+            val message = context[i]
+            val estimated = estimateTokens(message.content)
+            if (kept.isNotEmpty() && used + estimated > maxTokens) break
+            kept.addFirst(message)
+            used += estimated
+        }
+        return kept.toList()
+    }
+
+    // Lightweight heuristic: ~1 token per 4 chars for mixed natural language/code.
+    private fun estimateTokens(text: String): Int {
+        val clean = text.trim()
+        if (clean.isEmpty()) return 1
+        return (clean.length / 4).coerceAtLeast(1)
     }
 }
